@@ -1,0 +1,38 @@
+/* ============================================================
+   CSS VARIABLES
+   ============================================================ */
+
+:root {
+  /* Colors */
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface2: #1a1a1a;
+  --surface3: #222222;
+  --border: #2a2a2a;
+  --border2: #333333;
+  
+  --accent: #e8ff47;
+  --accent2: #ff6b35;
+  --accent3: #4fffb0;
+  
+  --text: #f0f0f0;
+  --text2: #888888;
+  --text3: #555555;
+  
+  --red: #ff4444;
+  --green: #4fffb0;
+  
+  /* Layout */
+  --radius: 6px;
+  --header-height: 60px;
+  --nav-height: 50px;
+  
+  /* Typography */
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+  
+  /* Transitions */
+  --transition-fast: 0.15s;
+  --transition-normal: 0.3s;
+}

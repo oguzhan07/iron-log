@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IRON LOG — Antrenman Takip</title>
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  
+  <!-- CSS Files -->
+  <link rel="stylesheet" href="assets/css/variables.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/layouts.css">
+  <link rel="stylesheet" href="assets/css/pages.css">
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-logo">IRON LOG</div>
+  <div class="spinner"></div>
+</div>
+
+<!-- AUTH SCREEN -->
+<div class="auth-screen" id="authScreen" style="display:none">
+  <div class="auth-box">
+    <div class="auth-logo">IRON LOG</div>
+    <div class="auth-sub">Antrenman Takip Sistemi</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">GİRİŞ</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">KAYIT</button>
+    </div>
+
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-success" id="authSuccess"></div>
+
+    <div class="form-group">
+      <label>E-POSTA</label>
+      <input type="email" id="authEmail" placeholder="ornek@email.com" onkeydown="if(event.key==='Enter')authSubmit()">
+    </div>
+
+    <div class="form-group">
+      <label>ŞİFRE</label>
+      <input type="password" id="authPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')authSubmit()">
+    </div>
+
+    <button class="btn btn-accent" style="width:100%;justify-content:center;padding:12px" id="authBtn" onclick="authSubmit()">GİRİŞ YAP</button>
+
+    <div style="margin-top:16px;text-align:center">
+      <button class="btn btn-ghost btn-sm" onclick="forgotPassword()">Şifremi unuttum</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP SHELL -->
+<div id="appShell" style="display:none">
+  
+  <header class="header">
+    <div class="logo">IRON<span> / </span>LOG</div>
+    <div class="header-right">
+      <div class="sync-indicator">
+        <div class="sync-dot" id="syncDot"></div>
+        <span id="syncLabel">BAĞLI</span>
+      </div>
+      <span class="today-badge" id="todayBadge"></span>
+      <span class="user-badge" id="userBadge"></span>
+      <button class="btn btn-sm" onclick="doSignOut()">ÇIKIŞ</button>
+      <button class="btn btn-accent btn-sm" onclick="openNewWorkout()">+ BAŞLAT</button>
+    </div>
+  </header>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showView('home',this)">HAFTA</button>
+    <button class="nav-btn" onclick="showView('workout',this)">ANTRENMAN</button>
+    <button class="nav-btn" onclick="showView('progress',this)">GELİŞİM</button>
+    <button class="nav-btn" onclick="showView('compare',this)">KARŞILAŞTIR</button>
+    <button class="nav-btn" onclick="showView('program',this)">PROGRAM</button>
+  </nav>
+
+  <main class="main">
+    <!-- HOME VIEW -->
+    <div class="view active" id="view-home">
+      <div class="stats-row" id="homeStats"></div>
+      <div class="section-header">
+        <div class="section-title">BU HAFTA</div>
+      </div>
+      <div class="grid-7" id="weekGrid"></div>
+      <div class="divider"></div>
+      <div class="section-header"><div class="section-title">SON ANTRENMANLAR</div></div>
+      <div class="card" id="recentLogs"></div>
+    </div>
+
+    <!-- WORKOUT VIEW -->
+    <div class="view" id="view-workout">
+      <div class="section-header">
+        <div id="workoutViewTitle" class="section-title">ANTRENMAN</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" onclick="showView('home',document.querySelector('.nav-btn'))">← GERİ</button>
+          <button class="btn btn-accent btn-sm" onclick="finishWorkout()" id="finishBtn">KAYDET ✓</button>
+        </div>
+      </div>
+      <div id="workoutExercises"></div>
+      <div class="add-exercise-row" onclick="openAddExercise()">+ EGZERSİZ EKLE</div>
+    </div>
+
+    <!-- PROGRESS VIEW -->
+    <div class="view" id="view-progress">
+      <div class="section-header"><div class="section-title">GELİŞİM</div></div>
+      <div style="margin-bottom:20px;display:flex;gap:8px;flex-wrap:wrap" id="exerciseChips"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">MAX AĞIRLIK (KG)</span>
+            <span id="prBadge" class="tag tag-legs" style="display:none">PR</span>
+          </div>
+          <div class="chart-container"><canvas id="weightChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">TOPLAM HACİM</span></div>
+          <div class="chart-container"><canvas id="volumeChart"></canvas></div>
+        </div>
+      </div>
+      <div style="margin-top:20px">
+        <div class="card">
+          <div class="card-header"><span class="card-title">1RM TAHMİNİ</span></div>
+          <div id="oneRMInfo"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPARE VIEW -->
+    <div class="view" id="view-compare">
+      <div class="section-header"><div class="section-title">KARŞILAŞTIR</div></div>
+      <div class="grid-2" style="margin-bottom:20px">
+        <div class="form-group" style="margin:0">
+          <label>ANTRENMAN 1</label>
+          <select id="compareA" onchange="renderComparison()"></select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>ANTRENMAN 2</label>
+          <select id="compareB" onchange="renderComparison()"></select>
+        </div>
+      </div>
+      <div id="comparisonResult"></div>
+    </div>
+
+    <!-- PROGRAM VIEW -->
+    <div class="view" id="view-program">
+      <div class="section-header">
+        <div class="section-title">HAFTALIK PROGRAM</div>
+        <button class="btn btn-accent btn-sm" onclick="openAddDay()">+ GÜN EKLE</button>
+      </div>
+      <div id="programGrid"></div>
+    </div>
+  </main>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modalAddDay">
+  <div class="modal">
+    <div class="modal-title">GÜN EKLE / DÜZENLE</div>
+    <button class="modal-close" onclick="closeModal('modalAddDay')">✕</button>
+    <div class="form-group">
+      <label>GÜN</label>
+      <select id="daySelect">
+        <option value="0">Pazartesi</option><option value="1">Salı</option>
+        <option value="2">Çarşamba</option><option value="3">Perşembe</option>
+        <option value="4">Cuma</option><option value="5">Cumartesi</option>
+        <option value="6">Pazar</option>
+      </select>
+    </div>
+    <div class="form-group"><label>PROGRAM ADI</label><input type="text" id="dayProgramName" placeholder="Push Day..."></div>
+    <div class="form-group">
+      <label>TİP</label>
+      <select id="dayType">
+        <option value="push">Push</option><option value="pull">Pull</option>
+        <option value="legs">Legs</option><option value="full">Full Body</option>
+        <option value="rest">Dinlenme</option>
+      </select>
+    </div>
+    <div id="dayExerciseList" style="margin-bottom:16px"></div>
+    <div class="add-exercise-row" onclick="addExerciseToDay()">+ EGZERSİZ EKLE</div>
+    <div class="divider"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="closeModal('modalAddDay')">İPTAL</button>
+      <button class="btn btn-accent" onclick="saveDayModal()" id="saveDayBtn">KAYDET</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAddExToDay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">EGZERSİZ EKLE</div>
+    <button class="modal-close" onclick="closeModal('modalAddExToDay')">✕</button>
+    <div class="form-group"><label>EGZERSİZ ADI</label><input type="text" id="exName" placeholder="Bench Press..."></div>
+    <div class="form-row">
+      <div class="form-group" style="margin:0"><label>SET</label><input type="number" id="exSets" value="4" min="1"></div>
+      <div class="form-group" style="margin:0"><label>HEDEF TEKRAR</label><input type="text" id="exReps" placeholder="8-10"></div>
+    </div>
+    <div class="form-group"><label>NOT</label><input type="text" id="exNote" placeholder="Tempo..."></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="closeModal('modalAddExToDay')">İPTAL</button>
+      <button class="btn btn-accent" onclick="confirmAddExToDay()">EKLE</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalNewWorkout">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-title">ANTRENMAN BAŞLAT</div>
+    <button class="modal-close" onclick="closeModal('modalNewWorkout')">✕</button>
+    <div class="form-group"><label>PROGRAM SEÇ</label><select id="workoutProgramSelect"></select></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="closeModal('modalNewWorkout')">İPTAL</button>
+      <button class="btn btn-accent" onclick="startWorkout()">BAŞLAT</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAddExWorkout">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">EGZERSİZ EKLE</div>
+    <button class="modal-close" onclick="closeModal('modalAddExWorkout')">✕</button>
+    <div class="form-group"><label>EGZERSİZ ADI</label><input type="text" id="exWorkoutName" placeholder="Bench Press..."></div>
+    <div class="form-row">
+      <div class="form-group" style="margin:0"><label>SET</label><input type="number" id="exWorkoutSets" value="4" min="1"></div>
+      <div class="form-group" style="margin:0"><label>HEDEF TEKRAR</label><input type="text" id="exWorkoutReps" placeholder="8-10"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="closeModal('modalAddExWorkout')">İPTAL</button>
+      <button class="btn btn-accent" onclick="confirmAddExWorkout()">EKLE</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Main App JS (ES6 Module) -->
+<script type="module" src="assets/js/app.js"></script>
+
+</body>
+</html>
