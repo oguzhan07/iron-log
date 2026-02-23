@@ -1,11 +1,11 @@
 /* ============================================================
-   WORKOUT VIEW
+   WORKOUT VIEW - ENHANCED
    ============================================================ */
 
 import { DAYS } from '../utils/constants.js';
 import { showToast, openModal, closeModal } from '../utils/ui.js';
 import { saveWorkoutLog } from '../firebase/firestore.js';
-import { getVolume } from '../utils/helpers.js';
+import { getVolume, formatDate } from '../utils/helpers.js';
 
 let activeWorkout = null;
 
@@ -64,6 +64,115 @@ export function startWorkout(state, onNavigate) {
   if (onNavigate) onNavigate('workout');
 }
 
+// NEW: Get exercise history from logs
+function getExerciseHistory(state, exerciseName) {
+  const history = [];
+  
+  for (const log of state.logs) {
+    const ex = log.exercises.find(e => 
+      e.name.toLowerCase() === exerciseName.toLowerCase()
+    );
+    
+    if (ex) {
+      history.push({
+        date: log.date,
+        sets: ex.sets,
+        maxKg: Math.max(...ex.sets.map(s => parseFloat(s.kg) || 0)),
+        totalVolume: ex.sets.reduce((sum, s) => 
+          sum + (parseFloat(s.kg) || 0) * (parseInt(s.reps) || 0), 0
+        )
+      });
+    }
+  }
+  
+  return history.sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+// NEW: Calculate suggested weight (progressive overload)
+function getSuggestedWeight(state, exerciseName) {
+  const history = getExerciseHistory(state, exerciseName);
+  if (history.length === 0) return null;
+  
+  const lastWorkout = history[0];
+  const avgKg = lastWorkout.sets.reduce((sum, s) => sum + (parseFloat(s.kg) || 0), 0) / lastWorkout.sets.length;
+  
+  // Progressive overload: +2.5kg for upper body, +5kg for lower body
+  const lowerBodyExercises = ['squat', 'deadlift', 'leg press', 'romanian deadlift'];
+  const isLowerBody = lowerBodyExercises.some(ex => 
+    exerciseName.toLowerCase().includes(ex)
+  );
+  
+  const increment = isLowerBody ? 5 : 2.5;
+  const suggested = Math.round((avgKg + increment) * 2) / 2; // Round to nearest 0.5
+  
+  return {
+    suggested,
+    lastAvg: Math.round(avgKg * 2) / 2,
+    increment
+  };
+}
+
+// NEW: Show exercise history modal
+export function showExerciseHistory(state, exerciseName) {
+  const history = getExerciseHistory(state, exerciseName);
+  const titleEl = document.getElementById('exerciseHistoryTitle');
+  const contentEl = document.getElementById('exerciseHistoryContent');
+  
+  if (!titleEl || !contentEl) return;
+  
+  titleEl.textContent = `${exerciseName.toUpperCase()} - GEÇMİŞ`;
+  
+  if (history.length === 0) {
+    contentEl.innerHTML = `
+      <div class="empty-state" style="padding:40px 20px">
+        <div class="icon">📊</div>
+        <p>Bu egzersiz için kayıt bulunamadı</p>
+      </div>
+    `;
+  } else {
+    contentEl.innerHTML = history.map((entry, idx) => `
+      <div style="margin-bottom:${idx === history.length - 1 ? '0' : '20px'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">
+            ${formatDate(entry.date)}
+          </div>
+          <div style="display:flex;gap:12px">
+            <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">
+              Max: <span style="color:var(--accent)">${entry.maxKg}kg</span>
+            </span>
+            <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">
+              Vol: <span style="color:var(--accent2)">${Math.round(entry.totalVolume)}kg</span>
+            </span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px">
+          ${entry.sets.map((set, setIdx) => `
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:6px 8px;text-align:center">
+              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-bottom:2px">
+                Set ${setIdx + 1}
+              </div>
+              <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500">
+                ${set.kg}kg × ${set.reps}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      ${idx < history.length - 1 ? '<div class="divider"></div>' : ''}
+    `).join('');
+  }
+  
+  openModal('modalExerciseHistory');
+}
+
+function getLastExerciseLog(state, exName) {
+  for (const log of state.logs) {
+    const ex = log.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
+    if (ex) return ex;
+  }
+  return null;
+}
+
 // Render workout view
 export function renderWorkout(state) {
   if (!activeWorkout) return;
@@ -76,6 +185,7 @@ export function renderWorkout(state) {
 
   container.innerHTML = activeWorkout.exercises.map((ex, exIdx) => {
     const lastLog = getLastExerciseLog(state, ex.name);
+    const suggested = getSuggestedWeight(state, ex.name);
     const allDone = ex.sets.every(s => s.done);
 
     return `
@@ -87,9 +197,17 @@ export function renderWorkout(state) {
               ${ex.sets.length} set · ${ex.targetReps} tekrar hedefi
               ${ex.note ? ' · ' + ex.note : ''}
             </div>
+            ${suggested ? `
+              <div style="margin-top:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent3)">
+                💡 Önerilen: ${suggested.suggested}kg (önceki ort: ${suggested.lastAvg}kg, +${suggested.increment}kg)
+              </div>
+            ` : ''}
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             ${allDone ? '<span class="tag tag-legs" style="font-size:9px">✓ TAMAM</span>' : ''}
+            <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation(); window.showExerciseHistory('${ex.name.replace(/'/g, "\\'")}')">
+              📊 GEÇMİŞ
+            </button>
             <span style="color:var(--text3);font-size:18px" id="chevron-${exIdx}">▾</span>
           </div>
         </div>
@@ -98,6 +216,11 @@ export function renderWorkout(state) {
           <div style="display:flex;gap:8px;margin-top:10px">
             <button class="btn btn-sm btn-ghost" onclick="window.addSetToWorkout(${exIdx})">+ SET</button>
             ${ex.sets.length > 1 ? `<button class="btn btn-sm btn-ghost" onclick="window.removeSetFromWorkout(${exIdx})">− SET</button>` : ''}
+            ${suggested ? `
+              <button class="btn btn-sm" onclick="window.applySuggestedWeight(${exIdx}, ${suggested.suggested})">
+                ✨ ${suggested.suggested}kg Uygula
+              </button>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -126,7 +249,7 @@ function renderSetsTable(exIdx, exercise, lastLog) {
 }
 
 function renderSetRow(exIdx, setIdx, set, lastLog) {
-  const prevSet = lastLog?.sets[setIdx];
+  const prevSet = lastLog ? (lastLog.sets[setIdx] || null) : null;
   const prevStr = prevSet ? `${prevSet.kg}kg × ${prevSet.reps}` : '—';
   
   let delta = '';
@@ -167,14 +290,16 @@ function renderSetRow(exIdx, setIdx, set, lastLog) {
   `;
 }
 
-function getLastExerciseLog(state, exerciseName) {
-  for (const log of state.logs) {
-    const ex = log.exercises.find(e => 
-      e.name.toLowerCase() === exerciseName.toLowerCase()
-    );
-    if (ex) return ex;
-  }
-  return null;
+// NEW: Apply suggested weight to all sets
+export function applySuggestedWeight(state, exIdx, suggestedKg) {
+  if (!activeWorkout) return;
+  
+  activeWorkout.exercises[exIdx].sets.forEach((set, idx) => {
+    set.kg = suggestedKg;
+  });
+  
+  renderWorkout(state);
+  showToast(`${suggestedKg}kg tüm setlere uygulandı`);
 }
 
 // Toggle exercise collapse

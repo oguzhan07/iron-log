@@ -1,8 +1,8 @@
 /* ============================================================
-   PROGRAM VIEW
+   PROGRAM VIEW — v2 (Templates + UI upgrade)
    ============================================================ */
 
-import { DAYS, TAG_CLASSES, TAG_LABELS } from '../utils/constants.js';
+import { DAYS, TAG_CLASSES, TAG_LABELS, BUILT_IN_TEMPLATES, WEEKLY_TEMPLATE } from '../utils/constants.js';
 import { showToast, openModal, closeModal } from '../utils/ui.js';
 import { saveDay, deleteDay } from '../firebase/firestore.js';
 
@@ -18,7 +18,17 @@ export function renderProgram(state) {
     container.innerHTML = `
       <div class="empty-state">
         <div class="icon">📋</div>
-        <p>Program boş. Gün ekle!</p>
+        <p>Program boş. Hızlı başlamak için hazır template kullan!</p>
+        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          ${BUILT_IN_TEMPLATES.map(t => `
+            <button class="btn btn-accent btn-sm" onclick="window.loadTemplate('${t.id}', null)">
+              ${t.name.split('—')[0].trim()}
+            </button>
+          `).join('')}
+          <button class="btn btn-sm" onclick="window.loadFullWeekTemplate()">
+            📅 Tüm Hafta PPL
+          </button>
+        </div>
       </div>
     `;
     return;
@@ -27,16 +37,21 @@ export function renderProgram(state) {
   const sortedProgram = [...state.program].sort((a, b) => a.day - b.day);
 
   container.innerHTML = sortedProgram.map(day => `
-    <div class="card" style="margin-bottom:14px">
+    <div class="card program-day-card" style="margin-bottom:14px">
       <div class="card-header">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-bottom:4px">
-            ${DAYS[day.day]}
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="day-badge day-badge-${day.type}">
+            ${DAYS[day.day].substring(0,3).toUpperCase()}
           </div>
-          <div style="font-weight:600;font-size:15px">${day.name}</div>
+          <div>
+            <div style="font-weight:600;font-size:15px">${day.name}</div>
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <span class="tag ${TAG_CLASSES[day.type]}">${TAG_LABELS[day.type]}</span>
+              ${day.type !== 'rest' ? `<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);padding:3px 8px">${day.exercises.length} egzersiz</span>` : ''}
+            </div>
+          </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <span class="tag ${TAG_CLASSES[day.type]}">${TAG_LABELS[day.type]}</span>
           <button class="btn btn-sm" onclick="window.editDayModal('${day.id}')">DÜZENLE</button>
           <button class="btn btn-danger btn-sm" onclick="window.deleteDayModal('${day.id}')">SİL</button>
         </div>
@@ -48,16 +63,16 @@ export function renderProgram(state) {
 
 function renderDayExercises(exercises) {
   return `
-    <div style="display:flex;flex-direction:column;gap:6px">
+    <div style="display:flex;flex-direction:column;gap:5px">
       ${exercises.map(ex => `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface2);border-radius:4px;border:1px solid var(--border)">
-          <div>
-            <div style="font-weight:500;font-size:13px">${ex.name}</div>
-            ${ex.note ? `<div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:1px">${ex.note}</div>` : ''}
+        <div class="ex-row">
+          <div style="display:flex;align-items:center;gap:10px">
+            ${ex.note ? `<span class="ex-muscle-badge">${ex.note}</span>` : ''}
+            <span style="font-weight:500;font-size:13px">${ex.name}</span>
           </div>
-          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">
-            ${ex.sets} set × ${ex.reps}
-          </div>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">
+            ${ex.sets} × ${ex.reps}
+          </span>
         </div>
       `).join('')}
     </div>
@@ -92,7 +107,6 @@ export function editDay(state, dayId) {
 // Delete day
 export async function deleteProgram(state, dayId, onUpdate) {
   if (!confirm('Bu günü silmek istiyor musun?')) return;
-
   try {
     await deleteDay(dayId);
     state.program = state.program.filter(d => d.id !== dayId);
@@ -104,22 +118,38 @@ export async function deleteProgram(state, dayId, onUpdate) {
   }
 }
 
+// Load a built-in template into the add-day modal
+export function loadTemplate(templateId, dayIndex) {
+  const tpl = BUILT_IN_TEMPLATES.find(t => t.id === templateId);
+  if (!tpl) return;
+
+  tempDayExercises = JSON.parse(JSON.stringify(tpl.exercises));
+  document.getElementById('dayProgramName').value = tpl.name.split('—')[1]?.trim() || tpl.name;
+  document.getElementById('dayType').value = tpl.type;
+  if (dayIndex !== null && dayIndex !== undefined) {
+    document.getElementById('daySelect').value = String(dayIndex);
+  }
+  renderDayExerciseList();
+  showToast(`${tpl.name.split('—')[0].trim()} template yüklendi ✓`);
+}
+
 // Render exercise list in modal
 function renderDayExerciseList() {
   const container = document.getElementById('dayExerciseList');
   if (!container) return;
 
-  container.innerHTML = tempDayExercises.map((ex, index) => `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;margin-bottom:6px">
-      <div style="flex:1">
-        <div style="font-weight:500;font-size:13px">${ex.name}</div>
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">
-          ${ex.sets} set × ${ex.reps}
+  container.innerHTML = tempDayExercises.length === 0
+    ? `<div style="text-align:center;padding:20px;color:var(--text3);font-family:'DM Mono',monospace;font-size:11px">Egzersiz eklenmedi</div>`
+    : tempDayExercises.map((ex, index) => `
+      <div class="ex-row" style="margin-bottom:5px">
+        <div style="flex:1">
+          <span style="font-weight:500;font-size:13px">${ex.name}</span>
+          ${ex.note ? `<span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-left:6px">${ex.note}</span>` : ''}
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)">${ex.sets} set × ${ex.reps}</div>
         </div>
+        <button class="btn btn-danger btn-sm" onclick="window.removeTempExercise(${index})">✕</button>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="window.removeTempExercise(${index})">✕</button>
-    </div>
-  `).join('');
+    `).join('');
 }
 
 // Remove exercise from temp list
@@ -143,12 +173,7 @@ export function confirmAddExToDay() {
   const sets = parseInt(document.getElementById('exSets').value) || 3;
   const reps = document.getElementById('exReps').value.trim() || '10';
   const note = document.getElementById('exNote').value.trim();
-
-  if (!name) {
-    showToast('Egzersiz adı gir!', true);
-    return;
-  }
-
+  if (!name) { showToast('Egzersiz adı gir!', true); return; }
   tempDayExercises.push({ name, sets, reps, note });
   renderDayExerciseList();
   closeModal('modalAddExToDay');
@@ -159,26 +184,15 @@ export async function saveProgramDay(state, onUpdate) {
   const dayIndex = parseInt(document.getElementById('daySelect').value);
   const name = document.getElementById('dayProgramName').value.trim();
   const type = document.getElementById('dayType').value;
-
-  if (!name) {
-    showToast('Program adı gir!', true);
-    return;
-  }
+  if (!name) { showToast('Program adı gir!', true); return; }
 
   const btn = document.getElementById('saveDayBtn');
   btn.disabled = true;
   btn.textContent = '...';
 
   try {
-    const dayObj = {
-      day: dayIndex,
-      name,
-      type,
-      exercises: tempDayExercises
-    };
-
+    const dayObj = { day: dayIndex, name, type, exercises: tempDayExercises };
     const savedId = await saveDay(dayObj, editingDayId);
-
     if (savedId && onUpdate) {
       await onUpdate();
       closeModal('modalAddDay');
@@ -192,7 +206,4 @@ export async function saveProgramDay(state, onUpdate) {
   }
 }
 
-// Export temp exercises for external use
-export function getTempExercises() {
-  return tempDayExercises;
-}
+export function getTempExercises() { return tempDayExercises; }

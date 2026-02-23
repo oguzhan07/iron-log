@@ -1,80 +1,66 @@
 /* ============================================================
-   MAIN APP
+   MAIN APP — v2
    ============================================================ */
 
 import { auth } from './firebase/config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { signIn, signUp, logOut, resetPassword } from './firebase/auth.js';
-import { loadAllData } from './firebase/firestore.js';
-import { showToast, setSyncing, initModals } from './utils/ui.js';
+import { loadAllData, saveDay, loadBodyWeightLogs } from './firebase/firestore.js';
+import { showToast, setSyncing, initModals, openModal as _openModal, closeModal as _closeModal } from './utils/ui.js';
+import { BUILT_IN_TEMPLATES, WEEKLY_TEMPLATE, DAYS } from './utils/constants.js';
 
-// Import views
 import { renderHome } from './views/home.js';
 import * as ProgramView from './views/program.js';
 import * as WorkoutView from './views/workout.js';
 import * as ProgressView from './views/progress.js';
 import * as CompareView from './views/compare.js';
+import * as BodyWeightView from './views/bodyweight.js';
 
-// Global state
-let appState = {
-  program: [],
-  logs: []
-};
-
+let appState = { program: [], logs: [], bodyWeightLogs: [] };
 let authMode = 'login';
 
 /* ============================================================
    INITIALIZATION
    ============================================================ */
 
-// Initialize app
 async function initApp(user) {
   const loadingEl = document.getElementById('loadingOverlay');
   const authScreen = document.getElementById('authScreen');
   const appShell = document.getElementById('appShell');
-  
   if (!user) return;
 
-  // Show loading
   loadingEl.style.display = 'flex';
   authScreen.style.display = 'none';
   appShell.style.display = 'none';
 
-  // Set user info
   const userBadge = document.getElementById('userBadge');
-  if (userBadge) {
-    userBadge.textContent = user.email.split('@')[0].toUpperCase();
-  }
+  if (userBadge) userBadge.textContent = user.email.split('@')[0].toUpperCase();
 
-  // Set today's date
   const todayBadge = document.getElementById('todayBadge');
   if (todayBadge) {
     todayBadge.textContent = new Date().toLocaleDateString('tr-TR', {
-      weekday: 'long',
-      day: '2-digit',
-      month: 'long'
+      weekday: 'long', day: '2-digit', month: 'long'
     });
   }
 
-  // Load data
   setSyncing(true);
   try {
-    const data = await loadAllData();
+    const [data, bwLogs] = await Promise.all([
+      loadAllData(),
+      loadBodyWeightLogs()
+    ]);
     appState.program = data.program;
     appState.logs = data.logs;
+    appState.bodyWeightLogs = bwLogs;
   } catch (error) {
     showToast('Veri yüklenemedi: ' + error.message, true);
   }
   setSyncing(false);
 
-  // Hide loading, show app
   loadingEl.style.display = 'none';
   appShell.style.display = 'block';
 
-  // Render home view
   renderHome(appState);
-
-  // Initialize modals
   initModals();
 }
 
@@ -102,15 +88,12 @@ onAuthStateChanged(auth, async (user) => {
 
 window.switchAuthTab = function(mode) {
   authMode = mode;
-  
   document.querySelectorAll('.auth-tab').forEach((tab, index) => {
     const isActive = (index === 0 && mode === 'login') || (index === 1 && mode === 'register');
     tab.classList.toggle('active', isActive);
   });
-
   const btn = document.getElementById('authBtn');
   if (btn) btn.textContent = mode === 'login' ? 'GİRİŞ YAP' : 'KAYIT OL';
-
   document.getElementById('authError').style.display = 'none';
   document.getElementById('authSuccess').style.display = 'none';
 };
@@ -124,15 +107,9 @@ window.authSubmit = async function() {
 
   errorEl.style.display = 'none';
   successEl.style.display = 'none';
+  if (!email || !password) { errorEl.textContent = 'Email ve şifre gerekli.'; errorEl.style.display = 'block'; return; }
 
-  if (!email || !password) {
-    errorEl.textContent = 'Email ve şifre gerekli.';
-    errorEl.style.display = 'block';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = '...';
+  btn.disabled = true; btn.textContent = '...';
 
   try {
     if (authMode === 'login') {
@@ -143,7 +120,7 @@ window.authSubmit = async function() {
       successEl.style.display = 'block';
     }
   } catch (error) {
-    const errorMessages = {
+    const msgs = {
       'auth/user-not-found': 'Kullanıcı bulunamadı.',
       'auth/wrong-password': 'Şifre yanlış.',
       'auth/email-already-in-use': 'Bu email zaten kayıtlı.',
@@ -151,8 +128,7 @@ window.authSubmit = async function() {
       'auth/invalid-email': 'Geçersiz email adresi.',
       'auth/invalid-credential': 'Email veya şifre hatalı.'
     };
-    
-    errorEl.textContent = errorMessages[error.code] || error.message;
+    errorEl.textContent = msgs[error.code] || error.message;
     errorEl.style.display = 'block';
     btn.disabled = false;
     btn.textContent = authMode === 'login' ? 'GİRİŞ YAP' : 'KAYIT OL';
@@ -163,13 +139,7 @@ window.forgotPassword = async function() {
   const email = document.getElementById('authEmail').value.trim();
   const errorEl = document.getElementById('authError');
   const successEl = document.getElementById('authSuccess');
-
-  if (!email) {
-    errorEl.textContent = 'Email adresini gir.';
-    errorEl.style.display = 'block';
-    return;
-  }
-
+  if (!email) { errorEl.textContent = 'Email adresini gir.'; errorEl.style.display = 'block'; return; }
   try {
     await resetPassword(email);
     successEl.textContent = 'Şifre sıfırlama emaili gönderildi.';
@@ -182,7 +152,7 @@ window.forgotPassword = async function() {
 
 window.doSignOut = async function() {
   await logOut();
-  appState = { program: [], logs: [] };
+  appState = { program: [], logs: [], bodyWeightLogs: [] };
 };
 
 /* ============================================================
@@ -192,17 +162,18 @@ window.doSignOut = async function() {
 window.showView = function(viewName, btnElement) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  
-  document.getElementById('view-' + viewName).classList.add('active');
-  
+
+  const viewEl = document.getElementById('view-' + viewName);
+  if (viewEl) viewEl.classList.add('active');
+
   const targetBtn = btnElement || document.querySelector(`.nav-btn[onclick*="'${viewName}'"]`);
   if (targetBtn) targetBtn.classList.add('active');
 
-  // Render view
   if (viewName === 'home') renderHome(appState);
   if (viewName === 'program') ProgramView.renderProgram(appState);
   if (viewName === 'progress') ProgressView.renderProgress(appState);
   if (viewName === 'compare') CompareView.renderCompare(appState);
+  if (viewName === 'bodyweight') BodyWeightView.renderBodyWeight(appState);
 };
 
 /* ============================================================
@@ -216,6 +187,44 @@ window.removeTempExercise = (idx) => ProgramView.removeTempExercise(idx);
 window.addExerciseToDay = () => ProgramView.addExerciseToDay();
 window.confirmAddExToDay = () => ProgramView.confirmAddExToDay();
 window.saveDayModal = () => ProgramView.saveProgramDay(appState, reloadData);
+
+// Template loading
+window.loadTemplate = function(templateId, dayIndex) {
+  const tpl = BUILT_IN_TEMPLATES.find(t => t.id === templateId);
+  if (!tpl) return;
+  ProgramView.openAddDay();
+  ProgramView.loadTemplate(templateId, dayIndex);
+};
+
+window.loadFullWeekTemplate = async function() {
+  if (!confirm('Tüm haftalık PPL programını yüklemek istiyor musun? Mevcut program korunur, sadece yeni günler eklenir.')) return;
+  setSyncing(true);
+  try {
+    for (const entry of WEEKLY_TEMPLATE) {
+      const existingDay = appState.program.find(d => d.day === entry.day);
+      if (existingDay) continue; // skip existing
+
+      let dayObj;
+      if (entry.type === 'rest') {
+        dayObj = { day: entry.day, name: 'OFF', type: 'rest', exercises: [] };
+      } else {
+        const tpl = BUILT_IN_TEMPLATES.find(t => t.id === entry.templateId);
+        dayObj = {
+          day: entry.day,
+          name: tpl.name.split('—')[1]?.trim() || tpl.name,
+          type: tpl.type,
+          exercises: JSON.parse(JSON.stringify(tpl.exercises))
+        };
+      }
+      await saveDay(dayObj, null);
+    }
+    await reloadData();
+    showToast('Haftalık PPL programı yüklendi! 💪');
+  } catch (err) {
+    showToast('Hata: ' + err.message, true);
+  }
+  setSyncing(false);
+};
 
 /* ============================================================
    WORKOUT VIEW EXPORTS
@@ -232,6 +241,8 @@ window.removeSetFromWorkout = (idx) => WorkoutView.removeSet(appState, idx);
 window.openAddExercise = () => WorkoutView.openAddExercise();
 window.confirmAddExWorkout = () => WorkoutView.confirmAddExercise(appState);
 window.finishWorkout = () => WorkoutView.finishWorkout(appState, reloadData, showView);
+window.showExerciseHistory = (name) => WorkoutView.showExerciseHistory(appState, name);
+window.applySuggestedWeight = (ei, kg) => WorkoutView.applySuggestedWeight(appState, ei, kg);
 
 /* ============================================================
    PROGRESS VIEW EXPORTS
@@ -246,17 +257,28 @@ window.selectExercise = (name) => ProgressView.selectExercise(appState, name);
 window.renderComparison = () => CompareView.renderComparison(appState);
 
 /* ============================================================
+   BODY WEIGHT VIEW EXPORTS
+   ============================================================ */
+
+window.openAddBWLog = () => BodyWeightView.openAddBWLog();
+window.confirmAddBWLog = () => BodyWeightView.confirmAddBWLog(appState, reloadData);
+window.deleteBWLog = (id) => BodyWeightView.deleteBWLog(appState, id, reloadData);
+
+/* ============================================================
    DATA RELOAD
    ============================================================ */
 
 async function reloadData() {
   setSyncing(true);
   try {
-    const data = await loadAllData();
+    const [data, bwLogs] = await Promise.all([
+      loadAllData(),
+      loadBodyWeightLogs()
+    ]);
     appState.program = data.program;
     appState.logs = data.logs;
-    
-    // Re-render current view
+    appState.bodyWeightLogs = bwLogs;
+
     const activeView = document.querySelector('.view.active');
     if (activeView) {
       const viewId = activeView.id.replace('view-', '');
@@ -264,9 +286,14 @@ async function reloadData() {
       if (viewId === 'program') ProgramView.renderProgram(appState);
       if (viewId === 'progress') ProgressView.renderProgress(appState);
       if (viewId === 'compare') CompareView.renderCompare(appState);
+      if (viewId === 'bodyweight') BodyWeightView.renderBodyWeight(appState);
     }
   } catch (error) {
     showToast('Veri yüklenemedi: ' + error.message, true);
   }
   setSyncing(false);
 }
+
+// Make modal helpers globally accessible (called from HTML)
+window.closeModal = _closeModal;
+window.openModal = _openModal;

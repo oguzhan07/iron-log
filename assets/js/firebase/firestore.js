@@ -224,3 +224,40 @@ export async function loadAllData() {
   
   return { program, logs };
 }
+/* ============================================================
+   BODY WEIGHT LOG OPERATIONS
+   ============================================================ */
+
+// Load body weight logs
+export async function loadBodyWeightLogs() {
+  const logs = [];
+  const snap = await getDocs(
+    query(userCol('bodyWeightLogs'), orderBy('date', 'desc'), limit(365))
+  );
+  snap.forEach(d => {
+    const data = d.data();
+    logs.push({
+      id: d.id,
+      weight: data.weight,
+      date: data.date?.toDate?.() || new Date(data.date),
+      note: data.note || ''
+    });
+  });
+  return logs;
+}
+
+// Save body weight log
+export async function saveBodyWeightLog(weight, note = '') {
+  const ref = doc(userCol('bodyWeightLogs'));
+  await setDoc(ref, {
+    weight: parseFloat(weight),
+    note,
+    date: serverTimestamp()
+  });
+  return ref.id;
+}
+
+// Delete body weight log
+export async function deleteBodyWeightLog(id) {
+  await deleteDoc(userRef('bodyWeightLogs', id));
+}

@@ -4,14 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IRON LOG — Antrenman Takip</title>
-  
-  <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-  
-  <!-- Chart.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  
-  <!-- CSS Files -->
   <link rel="stylesheet" href="assets/css/variables.css">
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/components.css">
@@ -27,31 +21,25 @@
 </div>
 
 <!-- AUTH SCREEN -->
-<div class="auth-screen" id="authScreen">  
-    <div class="auth-box">
+<div class="auth-screen" id="authScreen">
+  <div class="auth-box">
     <div class="auth-logo">IRON LOG</div>
     <div class="auth-sub">Antrenman Takip Sistemi</div>
-
     <div class="auth-tabs">
       <button class="auth-tab active" onclick="switchAuthTab('login')">GİRİŞ</button>
       <button class="auth-tab" onclick="switchAuthTab('register')">KAYIT</button>
     </div>
-
     <div class="auth-error" id="authError"></div>
     <div class="auth-success" id="authSuccess"></div>
-
     <div class="form-group">
       <label>E-POSTA</label>
       <input type="email" id="authEmail" placeholder="ornek@email.com" onkeydown="if(event.key==='Enter')authSubmit()">
     </div>
-
     <div class="form-group">
       <label>ŞİFRE</label>
       <input type="password" id="authPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')authSubmit()">
     </div>
-
     <button class="btn btn-accent" style="width:100%;justify-content:center;padding:12px" id="authBtn" onclick="authSubmit()">GİRİŞ YAP</button>
-
     <div style="margin-top:16px;text-align:center">
       <button class="btn btn-ghost btn-sm" onclick="forgotPassword()">Şifremi unuttum</button>
     </div>
@@ -60,7 +48,7 @@
 
 <!-- APP SHELL -->
 <div id="appShell" style="display:none">
-  
+
   <header class="header">
     <div class="logo">IRON<span> / </span>LOG</div>
     <div class="header-right">
@@ -76,14 +64,16 @@
   </header>
 
   <nav class="nav">
-    <button class="nav-btn active" onclick="showView('home',this)">HAFTA</button>
-    <button class="nav-btn" onclick="showView('workout',this)">ANTRENMAN</button>
-    <button class="nav-btn" onclick="showView('progress',this)">GELİŞİM</button>
-    <button class="nav-btn" onclick="showView('compare',this)">KARŞILAŞTIR</button>
-    <button class="nav-btn" onclick="showView('program',this)">PROGRAM</button>
+    <button class="nav-btn active" onclick="showView('home',this)">🏠 HAFTA</button>
+    <button class="nav-btn" onclick="showView('workout',this)">🏋️ ANTRENMAN</button>
+    <button class="nav-btn" onclick="showView('progress',this)">📈 GELİŞİM</button>
+    <button class="nav-btn" onclick="showView('compare',this)">⚡ KARŞILAŞTIR</button>
+    <button class="nav-btn" onclick="showView('program',this)">📋 PROGRAM</button>
+    <button class="nav-btn" onclick="showView('bodyweight',this)">⚖️ KİLO</button>
   </nav>
 
   <main class="main">
+
     <!-- HOME VIEW -->
     <div class="view active" id="view-home">
       <div class="stats-row" id="homeStats"></div>
@@ -117,7 +107,7 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">MAX AĞIRLIK (KG)</span>
-            <span id="prBadge" class="tag tag-legs" style="display:none">PR</span>
+            <span id="prBadge" class="tag tag-legs" style="display:none">🏆 PR</span>
           </div>
           <div class="chart-container"><canvas id="weightChart"></canvas></div>
         </div>
@@ -154,18 +144,76 @@
     <div class="view" id="view-program">
       <div class="section-header">
         <div class="section-title">HAFTALIK PROGRAM</div>
-        <button class="btn btn-accent btn-sm" onclick="openAddDay()">+ GÜN EKLE</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="loadFullWeekTemplate()">📅 PPL Hafta Yükle</button>
+          <button class="btn btn-accent btn-sm" onclick="openAddDay()">+ GÜN EKLE</button>
+        </div>
+      </div>
+      <!-- Template cards -->
+      <div class="template-row">
+        <div class="template-label">HAZIR TEMPLATELER</div>
+        <div class="template-cards">
+          <div class="template-card template-push" onclick="loadTemplate('push', null)">
+            <div class="template-card-icon">🔴</div>
+            <div class="template-card-name">PUSH</div>
+            <div class="template-card-sub">Göğüs · Omuz · Triceps</div>
+            <div class="template-card-count">8 egzersiz</div>
+          </div>
+          <div class="template-card template-pull" onclick="loadTemplate('pull', null)">
+            <div class="template-card-icon">🔵</div>
+            <div class="template-card-name">PULL</div>
+            <div class="template-card-sub">Sırt · Biceps · Ön Kol</div>
+            <div class="template-card-count">8 egzersiz</div>
+          </div>
+          <div class="template-card template-legs" onclick="loadTemplate('legs', null)">
+            <div class="template-card-icon">🟢</div>
+            <div class="template-card-name">LEGS</div>
+            <div class="template-card-sub">Bacak · Core</div>
+            <div class="template-card-count">6 egzersiz</div>
+          </div>
+        </div>
       </div>
       <div id="programGrid"></div>
     </div>
+
+    <!-- BODY WEIGHT VIEW -->
+    <div class="view" id="view-bodyweight">
+      <div class="section-header">
+        <div class="section-title">VÜC​UT KİLOSU TAKİBİ</div>
+        <button class="btn btn-accent btn-sm" onclick="openAddBWLog()">+ KİLO EKLE</button>
+      </div>
+      <div class="stats-row" id="bwStats" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="card" style="margin-top:20px">
+        <div class="card-header"><span class="card-title">KİLO GRAFİĞİ</span></div>
+        <div class="chart-container" style="height:260px"><canvas id="bwChart"></canvas></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-header"><span class="card-title">KAYITLAR</span></div>
+        <div id="bwTable"></div>
+      </div>
+    </div>
+
   </main>
 </div>
 
-<!-- MODALS -->
+<!-- ================= MODALS ================= -->
+
+<!-- Add Day / Edit Day -->
 <div class="modal-overlay" id="modalAddDay">
   <div class="modal">
     <div class="modal-title">GÜN EKLE / DÜZENLE</div>
     <button class="modal-close" onclick="closeModal('modalAddDay')">✕</button>
+
+    <!-- Template Quick Load -->
+    <div style="margin-bottom:16px">
+      <label>HAZIR TEMPLATE</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="window.loadTemplate('push', document.getElementById('daySelect').value)">🔴 Push</button>
+        <button class="btn btn-sm" onclick="window.loadTemplate('pull', document.getElementById('daySelect').value)">🔵 Pull</button>
+        <button class="btn btn-sm" onclick="window.loadTemplate('legs', document.getElementById('daySelect').value)">🟢 Legs</button>
+      </div>
+    </div>
+
     <div class="form-group">
       <label>GÜN</label>
       <select id="daySelect">
@@ -181,7 +229,7 @@
       <select id="dayType">
         <option value="push">Push</option><option value="pull">Pull</option>
         <option value="legs">Legs</option><option value="full">Full Body</option>
-        <option value="rest">Dinlenme</option>
+        <option value="rest">Dinlenme / OFF</option>
       </select>
     </div>
     <div id="dayExerciseList" style="margin-bottom:16px"></div>
@@ -194,6 +242,7 @@
   </div>
 </div>
 
+<!-- Add Exercise to Day -->
 <div class="modal-overlay" id="modalAddExToDay">
   <div class="modal" style="max-width:380px">
     <div class="modal-title">EGZERSİZ EKLE</div>
@@ -203,7 +252,7 @@
       <div class="form-group" style="margin:0"><label>SET</label><input type="number" id="exSets" value="4" min="1"></div>
       <div class="form-group" style="margin:0"><label>HEDEF TEKRAR</label><input type="text" id="exReps" placeholder="8-10"></div>
     </div>
-    <div class="form-group"><label>NOT</label><input type="text" id="exNote" placeholder="Tempo..."></div>
+    <div class="form-group"><label>KAS GRUBU / NOT</label><input type="text" id="exNote" placeholder="Göğüs, Omuz..."></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button class="btn" onclick="closeModal('modalAddExToDay')">İPTAL</button>
       <button class="btn btn-accent" onclick="confirmAddExToDay()">EKLE</button>
@@ -211,6 +260,7 @@
   </div>
 </div>
 
+<!-- Start Workout -->
 <div class="modal-overlay" id="modalNewWorkout">
   <div class="modal" style="max-width:400px">
     <div class="modal-title">ANTRENMAN BAŞLAT</div>
@@ -223,6 +273,7 @@
   </div>
 </div>
 
+<!-- Add Exercise to Workout -->
 <div class="modal-overlay" id="modalAddExWorkout">
   <div class="modal" style="max-width:380px">
     <div class="modal-title">EGZERSİZ EKLE</div>
@@ -239,14 +290,45 @@
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- Exercise History Modal -->
+<div class="modal-overlay" id="modalExerciseHistory">
+  <div class="modal">
+    <div class="modal-title" id="exerciseHistoryTitle">EGZERSİZ GEÇMİŞİ</div>
+    <button class="modal-close" onclick="closeModal('modalExerciseHistory')">✕</button>
+    <div id="exerciseHistoryContent"></div>
+  </div>
+</div>
 
-<!-- Main App JS (ES6 Module) -->
+<!-- PR Records Modal -->
+<div class="modal-overlay" id="modalPRRecords">
+  <div class="modal">
+    <div class="modal-title">KİŞİSEL REKORLAR</div>
+    <button class="modal-close" onclick="closeModal('modalPRRecords')">✕</button>
+    <div id="prRecordsContent"></div>
+  </div>
+</div>
+
+<!-- Add Body Weight Modal -->
+<div class="modal-overlay" id="modalAddBW">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title">KİLO EKLE</div>
+    <button class="modal-close" onclick="closeModal('modalAddBW')">✕</button>
+    <div class="form-group">
+      <label>BUGÜNKÜ KİLON (KG)</label>
+      <input type="number" id="bwWeightInput" placeholder="75.5" step="0.1" min="20" max="300">
+    </div>
+    <div class="form-group">
+      <label>NOT (opsiyonel)</label>
+      <input type="text" id="bwNoteInput" placeholder="Sabah aç karnına...">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="closeModal('modalAddBW')">İPTAL</button>
+      <button class="btn btn-accent" id="saveBWBtn" onclick="confirmAddBWLog()">KAYDET</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
 <script type="module" src="assets/js/app.js"></script>
-<script>
-  console.log('✅ Normal script çalıştı');
-  console.log('Loading:', document.getElementById('loadingOverlay'));
-  console.log('Auth:', document.getElementById('authScreen'));
-</script>
 </body>
 </html>
